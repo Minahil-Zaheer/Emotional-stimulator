@@ -1,0 +1,1550 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Smart Emotional State Simulator</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+/* ═══════════════════════════════════════════════════
+   CSS VARIABLES — THEME SYSTEM
+═══════════════════════════════════════════════════ */
+:root {
+  --bg-primary:    #0d0d1a;
+  --bg-secondary:  #14142b;
+  --bg-card:       #1a1a35;
+  --bg-card2:      #1f1f3d;
+  --border:        rgba(120,120,255,0.15);
+  --text-primary:  #e8e8ff;
+  --text-secondary:#9090bb;
+  --accent:        #6c63ff;
+  --accent-glow:   rgba(108,99,255,0.35);
+  --green:         #00e676;
+  --yellow:        #ffd740;
+  --orange:        #ff9100;
+  --red:           #ff1744;
+  --cyan:          #00e5ff;
+  --shadow:        0 8px 32px rgba(0,0,0,0.5);
+  --radius:        16px;
+}
+[data-theme="light"] {
+  --bg-primary:    #f0f0fa;
+  --bg-secondary:  #e4e4f5;
+  --bg-card:       #ffffff;
+  --bg-card2:      #f8f8ff;
+  --border:        rgba(80,80,200,0.15);
+  --text-primary:  #1a1a3a;
+  --text-secondary:#5555aa;
+  --accent:        #5a52e0;
+  --accent-glow:   rgba(90,82,224,0.2);
+  --shadow:        0 8px 32px rgba(0,0,0,0.12);
+}
+
+/* ═══════════════════════════════════════════════════
+   RESET & BASE
+═══════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 15px; }
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  transition: background 0.4s, color 0.4s;
+  overflow-x: hidden;
+}
+button {
+  cursor: pointer;
+  font-family: inherit;
+  border: none;
+  outline: none;
+  transition: all 0.2s;
+}
+button:hover { filter: brightness(1.15); }
+button:active { transform: scale(0.96); }
+
+/* ═══════════════════════════════════════════════════
+   HEADER
+═══════════════════════════════════════════════════ */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 28px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 100;
+  backdrop-filter: blur(12px);
+}
+.header-title {
+  display: flex; align-items: center; gap: 12px;
+}
+.brain-icon {
+  width: 42px; height: 42px;
+  background: linear-gradient(135deg, var(--accent), #a78bfa);
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+h1 {
+  font-size: 1.25rem; font-weight: 700;
+  background: linear-gradient(90deg, var(--accent), #a78bfa, var(--cyan));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.header-subtitle { font-size: 0.75rem; color: var(--text-secondary); }
+
+.header-controls { display: flex; gap: 10px; align-items: center; }
+
+.btn {
+  padding: 8px 16px; border-radius: 10px; font-size: 0.82rem;
+  font-weight: 600; letter-spacing: 0.3px;
+}
+.btn-ghost {
+  background: transparent;
+  border: 1.5px solid var(--border);
+  color: var(--text-secondary);
+}
+.btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+.btn-accent {
+  background: linear-gradient(135deg, var(--accent), #a78bfa);
+  color: #fff;
+  box-shadow: 0 4px 14px var(--accent-glow);
+}
+.btn-danger {
+  background: rgba(255,23,68,0.15);
+  border: 1.5px solid rgba(255,23,68,0.35);
+  color: #ff5c7c;
+}
+.btn-green {
+  background: rgba(0,230,118,0.12);
+  border: 1.5px solid rgba(0,230,118,0.35);
+  color: var(--green);
+}
+
+/* ═══════════════════════════════════════════════════
+   SESSION TIMER
+═══════════════════════════════════════════════════ */
+.session-timer {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.8rem; color: var(--text-secondary);
+  background: var(--bg-card); padding: 6px 14px;
+  border-radius: 20px; border: 1px solid var(--border);
+}
+.timer-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--green);
+  animation: pulse-dot 1.5s infinite;
+}
+@keyframes pulse-dot {
+  0%,100%{ opacity:1; transform:scale(1); }
+  50%{ opacity:0.4; transform:scale(0.7); }
+}
+
+/* ═══════════════════════════════════════════════════
+   MAIN LAYOUT
+═══════════════════════════════════════════════════ */
+.main-grid {
+  display: grid;
+  grid-template-columns: 300px 1fr 300px;
+  grid-template-rows: auto auto;
+  gap: 18px;
+  padding: 20px 24px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* ═══════════════════════════════════════════════════
+   CARD COMPONENT
+═══════════════════════════════════════════════════ */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  transition: background 0.4s, border-color 0.3s;
+}
+.card-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card2);
+}
+.card-title {
+  font-size: 0.8rem; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; color: var(--text-secondary);
+  display: flex; align-items: center; gap: 8px;
+}
+.card-body { padding: 18px; }
+
+/* ═══════════════════════════════════════════════════
+   MOOD GAUGE (LEFT PANEL)
+═══════════════════════════════════════════════════ */
+.mood-panel { grid-column: 1; grid-row: 1; }
+
+.gauge-wrapper {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 16px;
+  padding: 20px 0;
+}
+
+/* SVG Circular Gauge */
+.gauge-svg { width: 200px; height: 200px; }
+.gauge-bg {
+  fill: none;
+  stroke: var(--border);
+  stroke-width: 14;
+}
+.gauge-fill {
+  fill: none;
+  stroke-width: 14;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.6s cubic-bezier(.68,-.55,.27,1.55),
+              stroke 0.6s ease;
+  transform-origin: center;
+  transform: rotate(-220deg);
+}
+.gauge-center-text { text-anchor: middle; dominant-baseline: middle; }
+.gauge-score {
+  font-size: 2.8rem; font-weight: 800;
+  fill: var(--text-primary);
+  transition: fill 0.4s;
+}
+.gauge-label {
+  font-size: 0.75rem;
+  fill: var(--text-secondary);
+}
+
+/* Mood State Badge */
+.mood-state-badge {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 20px; border-radius: 30px;
+  font-weight: 700; font-size: 1rem;
+  letter-spacing: 0.5px;
+  transition: all 0.5s ease;
+  border: 2px solid transparent;
+  box-shadow: 0 0 20px transparent;
+}
+.mood-emoji { font-size: 1.4rem; }
+
+/* Score change indicator */
+.score-delta {
+  font-size: 2rem; font-weight: 800;
+  text-align: center; height: 36px;
+  transition: all 0.3s;
+  opacity: 0;
+}
+.score-delta.show { opacity: 1; }
+.delta-pos { color: var(--green); }
+.delta-neg { color: var(--red); }
+
+/* Mood level bar */
+.mood-levels {
+  width: 100%; display: flex; flex-direction: column; gap: 6px;
+  padding: 0 8px;
+}
+.level-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px; border-radius: 8px;
+  transition: all 0.3s;
+  border: 1.5px solid transparent;
+}
+.level-item.active {
+  border-color: currentColor;
+  background: rgba(255,255,255,0.05);
+}
+.level-bar {
+  height: 5px; border-radius: 3px; flex: 1;
+  opacity: 0.35; transition: opacity 0.3s;
+}
+.level-item.active .level-bar { opacity: 1; }
+.level-range { font-size: 0.68rem; color: var(--text-secondary); min-width: 35px; }
+.level-name { font-size: 0.8rem; font-weight: 600; }
+
+/* ═══════════════════════════════════════════════════
+   CENTER PANEL — CHART
+═══════════════════════════════════════════════════ */
+.chart-panel { grid-column: 2; grid-row: 1; }
+.chart-container { position: relative; height: 240px; padding: 10px 8px 4px; }
+
+/* Stats row */
+.stats-row {
+  display: grid; grid-template-columns: repeat(5, 1fr);
+  gap: 10px; padding: 14px 18px;
+  border-top: 1px solid var(--border);
+}
+.stat-item { text-align: center; }
+.stat-value {
+  font-size: 1.4rem; font-weight: 800;
+  background: linear-gradient(135deg, var(--accent), #a78bfa);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.stat-label {
+  font-size: 0.65rem; color: var(--text-secondary);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  margin-top: 2px;
+}
+
+/* Tracking status */
+.tracking-status {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  padding: 12px 18px; border-top: 1px solid var(--border);
+}
+.track-badge {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: 20px; font-size: 0.72rem;
+  font-weight: 600; border: 1.5px solid transparent;
+  opacity: 0.5; transition: all 0.3s;
+}
+.track-badge.active { opacity: 1; }
+.track-dot { width: 7px; height: 7px; border-radius: 50%; }
+
+/* ═══════════════════════════════════════════════════
+   RIGHT PANEL
+═══════════════════════════════════════════════════ */
+.right-panel { grid-column: 3; grid-row: 1 / 3; display: flex; flex-direction: column; gap: 18px; }
+
+/* Event Log */
+.event-log-panel { flex: 1; }
+.event-list {
+  padding: 10px;
+  max-height: 300px;
+  overflow-y: auto;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.event-list::-webkit-scrollbar { width: 4px; }
+.event-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.event-item {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 7px 10px; border-radius: 8px;
+  background: var(--bg-card2);
+  border-left: 3px solid transparent;
+  animation: slideInEvent 0.3s ease;
+  transition: background 0.3s;
+}
+@keyframes slideInEvent {
+  from { opacity: 0; transform: translateX(10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.event-icon { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+.event-info { flex: 1; min-width: 0; }
+.event-name { font-size: 0.78rem; font-weight: 600; }
+.event-time { font-size: 0.65rem; color: var(--text-secondary); }
+.event-delta { font-size: 0.78rem; font-weight: 700; flex-shrink: 0; }
+
+/* AI Prediction Panel */
+.ai-body { padding: 14px; }
+.ai-prediction-card {
+  background: linear-gradient(135deg, rgba(108,99,255,0.12), rgba(167,139,250,0.08));
+  border: 1.5px solid var(--accent-glow);
+  border-radius: 12px; padding: 14px;
+  margin-bottom: 12px;
+}
+.ai-title-row {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+}
+.ai-icon { font-size: 1.1rem; }
+.ai-label { font-size: 0.75rem; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; }
+.ai-prediction-text {
+  font-size: 0.88rem; color: var(--text-primary);
+  line-height: 1.5; margin-bottom: 10px;
+}
+.ai-next-mood {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.82rem; color: var(--text-secondary);
+}
+.ai-next-badge {
+  padding: 3px 10px; border-radius: 12px;
+  font-size: 0.78rem; font-weight: 700;
+  border: 1.5px solid currentColor;
+}
+.confidence-bar-wrap {
+  margin-top: 8px;
+}
+.confidence-label { font-size: 0.7rem; color: var(--text-secondary); margin-bottom: 4px; display: flex; justify-content: space-between; }
+.confidence-bar {
+  height: 5px; background: var(--border); border-radius: 3px; overflow: hidden;
+}
+.confidence-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), #a78bfa);
+  border-radius: 3px;
+  transition: width 0.6s ease;
+}
+.ai-trend-row {
+  display: flex; gap: 8px; flex-wrap: wrap;
+}
+.trend-chip {
+  padding: 4px 10px; border-radius: 12px; font-size: 0.72rem; font-weight: 600;
+  background: var(--bg-card2); border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+/* ═══════════════════════════════════════════════════
+   BOTTOM PANEL (FULL WIDTH)
+═══════════════════════════════════════════════════ */
+.bottom-panels {
+  grid-column: 1 / 3; grid-row: 2;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 18px;
+}
+
+/* Instructions panel */
+.instructions-body { padding: 14px 18px; }
+.instruction-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+.instruction-item {
+  display: flex; gap: 10px; align-items: flex-start;
+  padding: 10px; border-radius: 10px;
+  background: var(--bg-card2); border: 1px solid var(--border);
+}
+.instruction-icon { font-size: 1.3rem; flex-shrink: 0; }
+.instruction-desc { font-size: 0.75rem; color: var(--text-secondary); }
+.instruction-title { font-size: 0.8rem; font-weight: 700; color: var(--text-primary); margin-bottom: 2px; }
+.instruction-effect { font-size: 0.72rem; font-weight: 600; margin-top: 3px; }
+
+/* Idle tracker */
+.idle-panel-body { padding: 14px 18px; }
+.idle-bar-wrap {
+  margin-bottom: 12px;
+}
+.idle-bar-label {
+  display: flex; justify-content: space-between;
+  font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 6px;
+}
+.idle-bar-track {
+  height: 10px; background: var(--border); border-radius: 5px; overflow: hidden;
+}
+.idle-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--green), var(--yellow), var(--red));
+  border-radius: 5px;
+  transition: width 1s linear;
+}
+.idle-text { font-size: 0.82rem; color: var(--text-secondary); text-align: center; margin-top: 8px; }
+
+/* Raw metrics */
+.metrics-grid {
+  display: grid; grid-template-columns: repeat(3,1fr); gap: 10px;
+  margin-top: 8px;
+}
+.metric-box {
+  background: var(--bg-card2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px; text-align: center;
+}
+.metric-val { font-size: 1.2rem; font-weight: 800; color: var(--accent); }
+.metric-lbl { font-size: 0.65rem; color: var(--text-secondary); text-transform: uppercase; }
+
+/* ═══════════════════════════════════════════════════
+   MOOD COLORS
+═══════════════════════════════════════════════════ */
+.mood-overstimulated { color: #ff1744; }
+.mood-frustrated     { color: #ff9100; }
+.mood-neutral        { color: #ffd740; }
+.mood-calm           { color: #00e676; }
+.mood-deepfocus      { color: #00e5ff; }
+
+/* ═══════════════════════════════════════════════════
+   NOTIFICATION TOAST
+═══════════════════════════════════════════════════ */
+#toast-container {
+  position: fixed; bottom: 24px; right: 24px;
+  display: flex; flex-direction: column; gap: 8px;
+  z-index: 9999;
+}
+.toast {
+  padding: 10px 18px; border-radius: 12px;
+  font-size: 0.82rem; font-weight: 600;
+  display: flex; align-items: center; gap: 8px;
+  backdrop-filter: blur(12px);
+  border: 1.5px solid transparent;
+  animation: toastIn 0.35s cubic-bezier(.68,-.55,.27,1.55);
+  box-shadow: var(--shadow);
+}
+.toast-out { animation: toastOut 0.3s ease forwards; }
+@keyframes toastIn  { from { opacity:0; transform:translateX(40px) scale(0.8); } to { opacity:1; transform:translateX(0) scale(1); } }
+@keyframes toastOut { from { opacity:1; transform:translateX(0); } to { opacity:0; transform:translateX(40px); } }
+.toast-stress { background: rgba(255,23,68,0.2); border-color: rgba(255,23,68,0.5); color: #ff5c7c; }
+.toast-calm   { background: rgba(0,230,118,0.15); border-color: rgba(0,230,118,0.4); color: #00e676; }
+.toast-info   { background: rgba(108,99,255,0.2); border-color: rgba(108,99,255,0.45); color: #a78bfa; }
+
+/* ═══════════════════════════════════════════════════
+   GLOW PULSE ON SCORE CHANGE
+═══════════════════════════════════════════════════ */
+@keyframes glowPulse {
+  0%   { box-shadow: 0 0 0 0 currentColor; }
+  70%  { box-shadow: 0 0 0 14px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.glow-pulse { animation: glowPulse 0.6s ease; }
+
+/* ═══════════════════════════════════════════════════
+   RESPONSIVE
+═══════════════════════════════════════════════════ */
+@media (max-width: 1100px) {
+  .main-grid { grid-template-columns: 260px 1fr; }
+  .right-panel { grid-column: 1 / 3; grid-row: 2; flex-direction: row; }
+  .bottom-panels { grid-column: 1 / 3; grid-row: 3; }
+}
+@media (max-width: 720px) {
+  .main-grid { grid-template-columns: 1fr; }
+  .mood-panel, .chart-panel, .right-panel, .bottom-panels { grid-column: 1; }
+  .right-panel { flex-direction: column; }
+  .stats-row { grid-template-columns: repeat(3,1fr); }
+  .bottom-panels { grid-template-columns: 1fr; }
+  h1 { font-size: 1rem; }
+  header { padding: 12px 16px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════
+     HEADER
+═══════════════════════════════════════════════════ -->
+<header>
+  <div class="header-title">
+    <div class="brain-icon">🧠</div>
+    <div>
+      <h1>Smart Emotional State Simulator</h1>
+      <div class="header-subtitle">Real-time Mood Stability Tracker • MWF Task #4</div>
+    </div>
+  </div>
+  <div class="header-controls">
+    <div class="session-timer">
+      <div class="timer-dot"></div>
+      <span>Session: <strong id="sessionTimer">00:00</strong></span>
+    </div>
+    <button class="btn btn-ghost" id="themeToggleBtn" title="Toggle theme">🌙 Dark</button>
+    <button class="btn btn-green" id="exportBtn">⬇ Export</button>
+    <button class="btn btn-danger" id="resetBtn">↺ Reset</button>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════
+     MAIN GRID
+═══════════════════════════════════════════════════ -->
+<div class="main-grid">
+
+  <!-- ── LEFT: MOOD GAUGE ─────────────────────────── -->
+  <div class="card mood-panel">
+    <div class="card-header">
+      <div class="card-title">⚡ Mood Gauge</div>
+      <div id="moodTimestamp" style="font-size:0.68rem;color:var(--text-secondary)">—</div>
+    </div>
+    <div class="card-body" style="padding:12px 16px">
+      <div class="gauge-wrapper">
+        <!-- SVG Circular Gauge -->
+        <svg class="gauge-svg" viewBox="0 0 200 200">
+          <defs>
+            <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%"   stop-color="#ff1744"/>
+              <stop offset="33%"  stop-color="#ffd740"/>
+              <stop offset="66%"  stop-color="#00e676"/>
+              <stop offset="100%" stop-color="#00e5ff"/>
+            </linearGradient>
+          </defs>
+          <!-- BG arc: 240 degrees, starting top-left -->
+          <circle class="gauge-bg" cx="100" cy="100" r="80"
+            stroke-dasharray="335.1 503.3"
+            stroke-dashoffset="-83.8"
+            style="transform:rotate(-30deg);transform-origin:center"/>
+          <!-- Fill arc -->
+          <circle class="gauge-fill" id="gaugeFill" cx="100" cy="100" r="80"
+            stroke="url(#gaugeGrad)"
+            stroke-dasharray="335.1 503.3"
+            stroke-dashoffset="335.1"/>
+          <!-- Center text -->
+          <text class="gauge-center-text" x="100" y="90">
+            <tspan class="gauge-score" id="gaugeScore" x="100" dy="0">50</tspan>
+          </text>
+          <text class="gauge-center-text gauge-label" x="100" y="118">Mood Score</text>
+        </svg>
+
+        <!-- Score Delta -->
+        <div class="score-delta" id="scoreDelta">+0</div>
+
+        <!-- Mood State Badge -->
+        <div class="mood-state-badge" id="moodBadge">
+          <span class="mood-emoji" id="moodEmoji">😐</span>
+          <span id="moodStateName">Neutral</span>
+        </div>
+      </div>
+
+      <!-- Mood Levels -->
+      <div class="mood-levels">
+        <div class="level-item mood-deepfocus"     data-level="deepfocus">
+          <div class="level-bar" style="background:#00e5ff"></div>
+          <span class="level-range">81–100</span>
+          <span class="level-name">Deep Focus</span>
+          <span style="margin-left:auto;font-size:.7rem">🎯</span>
+        </div>
+        <div class="level-item mood-calm"          data-level="calm">
+          <div class="level-bar" style="background:#00e676"></div>
+          <span class="level-range">61–80</span>
+          <span class="level-name">Calm</span>
+          <span style="margin-left:auto;font-size:.7rem">😌</span>
+        </div>
+        <div class="level-item mood-neutral active" data-level="neutral">
+          <div class="level-bar" style="background:#ffd740"></div>
+          <span class="level-range">41–60</span>
+          <span class="level-name">Neutral</span>
+          <span style="margin-left:auto;font-size:.7rem">😐</span>
+        </div>
+        <div class="level-item mood-frustrated"    data-level="frustrated">
+          <div class="level-bar" style="background:#ff9100"></div>
+          <span class="level-range">21–40</span>
+          <span class="level-name">Frustrated</span>
+          <span style="margin-left:auto;font-size:.7rem">😤</span>
+        </div>
+        <div class="level-item mood-overstimulated" data-level="overstimulated">
+          <div class="level-bar" style="background:#ff1744"></div>
+          <span class="level-range">0–20</span>
+          <span class="level-name">Overstimulated</span>
+          <span style="margin-left:auto;font-size:.7rem">😵</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CENTER: CHART ─────────────────────────────── -->
+  <div class="card chart-panel">
+    <div class="card-header">
+      <div class="card-title">📈 Real-Time Score Graph</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <div style="font-size:0.72rem;color:var(--text-secondary)" id="chartRange">Last 60s</div>
+        <div style="width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse-dot 1.5s infinite"></div>
+      </div>
+    </div>
+    <div class="chart-container">
+      <canvas id="moodChart"></canvas>
+    </div>
+    <div class="stats-row">
+      <div class="stat-item">
+        <div class="stat-value" id="statSession">50</div>
+        <div class="stat-label">Current</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" id="statPeak">50</div>
+        <div class="stat-label">Peak</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" id="statLow">50</div>
+        <div class="stat-label">Low</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" id="statEvents">0</div>
+        <div class="stat-label">Events</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-value" id="statAvg">50</div>
+        <div class="stat-label">Average</div>
+      </div>
+    </div>
+    <div class="tracking-status">
+      <div class="track-badge" id="badge-typing"    style="border-color:rgba(255,100,100,0.4);color:#ff6464">
+        <div class="track-dot" style="background:#ff6464"></div>⌨️ Typing
+      </div>
+      <div class="track-badge" id="badge-mouse"     style="border-color:rgba(255,145,0,0.4);color:#ff9100">
+        <div class="track-dot" style="background:#ff9100"></div>🖱 Mouse
+      </div>
+      <div class="track-badge" id="badge-click"     style="border-color:rgba(255,215,64,0.4);color:#ffd740">
+        <div class="track-dot" style="background:#ffd740"></div>🖱 Clicks
+      </div>
+      <div class="track-badge" id="badge-calm"      style="border-color:rgba(0,230,118,0.4);color:#00e676">
+        <div class="track-dot" style="background:#00e676"></div>🌿 Calm
+      </div>
+      <div class="track-badge" id="badge-idle"      style="border-color:rgba(0,229,255,0.4);color:#00e5ff">
+        <div class="track-dot" style="background:#00e5ff"></div>💤 Idle
+      </div>
+    </div>
+  </div>
+
+  <!-- ── RIGHT PANEL ────────────────────────────── -->
+  <div class="right-panel">
+
+    <!-- Event Log -->
+    <div class="card event-log-panel">
+      <div class="card-header">
+        <div class="card-title">📋 Event Log</div>
+        <span style="font-size:0.72rem;color:var(--text-secondary)" id="eventCount">0 events</span>
+      </div>
+      <div class="event-list" id="eventList">
+        <div style="text-align:center;padding:20px;color:var(--text-secondary);font-size:0.82rem">
+          Start interacting to track events...
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Prediction -->
+    <div class="card ai-panel">
+      <div class="card-header">
+        <div class="card-title">🤖 AI Prediction</div>
+        <span style="font-size:0.7rem;color:var(--accent)">Smart Analysis</span>
+      </div>
+      <div class="ai-body">
+        <div class="ai-prediction-card">
+          <div class="ai-title-row">
+            <span class="ai-icon">🔮</span>
+            <span class="ai-label">Next Mood Forecast</span>
+          </div>
+          <div class="ai-prediction-text" id="aiPredictionText">
+            Analyzing your interaction patterns…
+          </div>
+          <div class="ai-next-mood">
+            <span>Predicted:</span>
+            <span class="ai-next-badge" id="aiNextBadge" style="color:var(--text-secondary);border-color:var(--text-secondary)">—</span>
+          </div>
+          <div class="confidence-bar-wrap">
+            <div class="confidence-label">
+              <span>Confidence</span>
+              <span id="aiConfidenceVal">—</span>
+            </div>
+            <div class="confidence-bar">
+              <div class="confidence-fill" id="aiConfidenceFill" style="width:0%"></div>
+            </div>
+          </div>
+        </div>
+        <div class="ai-trend-row" id="aiTrends">
+          <div class="trend-chip">📊 Gathering data…</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /right-panel -->
+
+  <!-- ── BOTTOM: INSTRUCTIONS + IDLE ──────────────── -->
+  <div class="bottom-panels">
+
+    <!-- Instructions -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🎮 How to Interact</div>
+      </div>
+      <div class="instructions-body">
+        <div class="instruction-grid">
+          <div class="instruction-item">
+            <span class="instruction-icon">⌨️</span>
+            <div>
+              <div class="instruction-title">Typing Pressure</div>
+              <div class="instruction-desc">Fast typing bursts or holding keys triggers stress.</div>
+              <div class="instruction-effect" style="color:#ff6464">Stress −5</div>
+            </div>
+          </div>
+          <div class="instruction-item">
+            <span class="instruction-icon">🖱</span>
+            <div>
+              <div class="instruction-title">Mouse Aggression</div>
+              <div class="instruction-desc">Rapid mouse movement with high acceleration.</div>
+              <div class="instruction-effect" style="color:#ff9100">Stress −10</div>
+            </div>
+          </div>
+          <div class="instruction-item">
+            <span class="instruction-icon">💢</span>
+            <div>
+              <div class="instruction-title">Rapid Clicking</div>
+              <div class="instruction-desc">10+ clicks within 5 seconds.</div>
+              <div class="instruction-effect" style="color:#ffd740">Frustration −15</div>
+            </div>
+          </div>
+          <div class="instruction-item">
+            <span class="instruction-icon">🌿</span>
+            <div>
+              <div class="instruction-title">Calm Interaction</div>
+              <div class="instruction-desc">Slow, smooth movement + gentle typing.</div>
+              <div class="instruction-effect" style="color:#00e676">Calm +10</div>
+            </div>
+          </div>
+        </div>
+        <!-- Raw sensor metrics -->
+        <div class="metrics-grid">
+          <div class="metric-box">
+            <div class="metric-val" id="metricKPS">0</div>
+            <div class="metric-lbl">Keys/sec</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-val" id="metricMSpeed">0</div>
+            <div class="metric-lbl">Mouse Speed</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-val" id="metricClicks">0</div>
+            <div class="metric-lbl">Clicks/5s</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Idle Tracker -->
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">💤 Idle Tracker</div>
+        <span style="font-size:0.72rem;color:var(--text-secondary)">60s Trigger</span>
+      </div>
+      <div class="idle-panel-body">
+        <div class="idle-bar-wrap">
+          <div class="idle-bar-label">
+            <span>Idle Time</span>
+            <span id="idleTimeDisplay">0s / 60s</span>
+          </div>
+          <div class="idle-bar-track">
+            <div class="idle-bar-fill" id="idleBarFill" style="width:0%"></div>
+          </div>
+          <div class="idle-text" id="idleStatusText">Active — Keep interacting!</div>
+        </div>
+        <div style="font-size:0.78rem;color:var(--text-secondary);line-height:1.6;margin-top:8px;padding:10px;background:var(--bg-card2);border-radius:10px;border:1px solid var(--border)">
+          💡 <strong>Note:</strong> If you stop all activity (mouse, keyboard, clicks) for 60 seconds, 
+          the system detects an Idle Reset and applies <span style="color:#ff6464">−5 Stress</span> to your score.
+          Stay engaged to maintain Calm state!
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /bottom-panels -->
+
+</div><!-- /main-grid -->
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<!-- ═══════════════════════════════════════════════════
+     JAVASCRIPT
+═══════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+/* ════════════════════════════════════════════════════
+   MODULE 1: STATE MANAGER
+   Holds all global state with clean getters/setters
+════════════════════════════════════════════════════ */
+const State = (() => {
+  let _state = {
+    score:        50,
+    peakScore:    50,
+    lowScore:     50,
+    scoreHistory: [],
+    eventLog:     [],
+    totalEvents:  0,
+    sessionStart: Date.now(),
+    theme:        'dark',
+  };
+
+  return {
+    get:    (k)    => _state[k],
+    set:    (k, v) => { _state[k] = v; },
+    getAll: ()     => ({ ..._state }),
+    reset:  ()     => {
+      _state.score        = 50;
+      _state.peakScore    = 50;
+      _state.lowScore     = 50;
+      _state.scoreHistory = [];
+      _state.eventLog     = [];
+      _state.totalEvents  = 0;
+      _state.sessionStart = Date.now();
+    },
+  };
+})();
+
+/* ════════════════════════════════════════════════════
+   MODULE 2: MOOD LOGIC
+   Pure functions — no DOM access
+════════════════════════════════════════════════════ */
+const MoodLogic = (() => {
+  const LEVELS = [
+    { key: 'overstimulated', label: 'Overstimulated', min:  0, max: 20, emoji: '😵', color: '#ff1744' },
+    { key: 'frustrated',     label: 'Frustrated',     min: 21, max: 40, emoji: '😤', color: '#ff9100' },
+    { key: 'neutral',        label: 'Neutral',        min: 41, max: 60, emoji: '😐', color: '#ffd740' },
+    { key: 'calm',           label: 'Calm',           min: 61, max: 80, emoji: '😌', color: '#00e676' },
+    { key: 'deepfocus',      label: 'Deep Focus',     min: 81, max:100, emoji: '🎯', color: '#00e5ff' },
+  ];
+
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+  function getLevelForScore(score) {
+    return LEVELS.find(l => score >= l.min && score <= l.max) || LEVELS[2];
+  }
+
+  function applyDelta(currentScore, delta) {
+    return clamp(currentScore + delta, 0, 100);
+  }
+
+  function predictNextMood(eventLog, currentScore) {
+    if (eventLog.length < 3) {
+      return { level: getLevelForScore(currentScore), confidence: 40, message: 'Gathering interaction data…', trends: [] };
+    }
+    const recent = eventLog.slice(-20);
+    const stressCount   = recent.filter(e => e.delta < 0 && e.type !== 'calm').length;
+    const calmCount     = recent.filter(e => e.type === 'calm').length;
+    const frustCount    = recent.filter(e => e.type === 'rapid_click').length;
+    const recentDeltas  = recent.slice(-5).map(e => e.delta);
+    const avgDelta      = recentDeltas.reduce((a,b)=>a+b,0) / recentDeltas.length;
+
+    let predictedScore  = currentScore + avgDelta * 3;
+    predictedScore      = clamp(predictedScore, 0, 100);
+    const predictedLvl  = getLevelForScore(predictedScore);
+
+    const confidence = Math.min(95, 45 + Math.min(eventLog.length, 20) * 2.5);
+
+    const trends = [];
+    if (stressCount > calmCount) trends.push('⚡ Elevated stress');
+    if (calmCount > stressCount) trends.push('🌿 Calming trend');
+    if (frustCount >= 2)         trends.push('💢 Frustration spikes');
+    if (avgDelta > 3)            trends.push('📈 Score rising');
+    if (avgDelta < -3)           trends.push('📉 Score falling');
+    if (Math.abs(avgDelta) < 1)  trends.push('〰️ Score stable');
+
+    let message;
+    if (avgDelta > 3) {
+      message = `Your interactions show a calming pattern. Expect mood to improve toward ${predictedLvl.label}.`;
+    } else if (avgDelta < -3) {
+      message = `Stress signals detected in recent activity. Mood trending toward ${predictedLvl.label}. Try slowing down.`;
+    } else {
+      message = `Interaction pattern is balanced. Mood likely to remain near ${predictedLvl.label}.`;
+    }
+
+    return { level: predictedLvl, confidence: Math.round(confidence), message, trends };
+  }
+
+  return { getLevelForScore, applyDelta, predictNextMood, clamp };
+})();
+
+/* ════════════════════════════════════════════════════
+   MODULE 3: EVENT BUS
+   Decoupled pub/sub event system (defined BEFORE Tracker)
+════════════════════════════════════════════════════ */
+const EventBus = (() => {
+  const listeners = {};
+  function on(event, cb)      { (listeners[event] = listeners[event]||[]).push(cb); }
+  function emit(event, ...args) { (listeners[event]||[]).forEach(cb=>cb(...args)); }
+  return { on, emit };
+})();
+
+/* ════════════════════════════════════════════════════
+   MODULE 4: TRACKING ENGINE
+   Detects behavioral events — no DOM mutations
+   (Defined AFTER EventBus so it can emit events)
+════════════════════════════════════════════════════ */
+const Tracker = (() => {
+  // --- Internal tracking state ---
+  const mouse = {
+    lastX: 0, lastY: 0, lastTime: 0,
+    lastSpeed: 0,
+    speedSamples: [],
+    aggressionCooldown: 0,
+    calmCooldown: 0,
+  };
+  const keyboard = {
+    keyTimestamps: [],
+    heldKeys: {},
+    burstCooldown: 0,
+    holdCooldown: 0,
+    lastKeyTime: 0,
+    stableCount: 0,
+  };
+  const clicks = {
+    timestamps: [],
+    frustCooldown: 0,
+  };
+  let lastActivityTime = Date.now();
+  let idleTriggered    = false;
+
+  // Public metrics for display
+  const metrics = { kps: 0, mouseSpeed: 0, clicksIn5s: 0 };
+
+  function getIdleSeconds() {
+    return Math.floor((Date.now() - lastActivityTime) / 1000);
+  }
+
+  function touch() {
+    lastActivityTime = Date.now();
+    idleTriggered    = false;
+  }
+
+  // Check idle every second
+  setInterval(() => {
+    const idle = getIdleSeconds();
+    if (idle >= 60 && !idleTriggered) {
+      idleTriggered = true;
+      EventBus.emit('idle_reset');
+    }
+  }, 1000);
+
+  // ── Mouse tracking ───────────────────────────────
+  document.addEventListener('mousemove', (e) => {
+    touch();
+    const now = Date.now();
+    const dx  = e.clientX - mouse.lastX;
+    const dy  = e.clientY - mouse.lastY;
+    const dt  = Math.max(1, now - mouse.lastTime);
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const speed = dist / dt * 100; // px/100ms
+
+    const acceleration = Math.abs(speed - mouse.lastSpeed);
+
+    mouse.speedSamples.push(speed);
+    if (mouse.speedSamples.length > 10) mouse.speedSamples.shift();
+    metrics.mouseSpeed = Math.round(mouse.speedSamples.reduce((a,b)=>a+b,0) / mouse.speedSamples.length);
+
+    // Mouse aggression: high speed AND high acceleration
+    if (speed > 18 && acceleration > 12 && now > mouse.aggressionCooldown) {
+      mouse.aggressionCooldown = now + 2500; // 2.5s cooldown
+      EventBus.emit('mouse_aggression');
+    }
+
+    // Calm: consistently slow movement
+    if (speed < 3 && mouse.speedSamples.length >= 8 && now > mouse.calmCooldown) {
+      const allSlow = mouse.speedSamples.every(s => s < 5);
+      if (allSlow) {
+        mouse.calmCooldown = now + 8000; // 8s cooldown
+        EventBus.emit('calm_interaction', 'slow_mouse');
+      }
+    }
+
+    mouse.lastX    = e.clientX;
+    mouse.lastY    = e.clientY;
+    mouse.lastTime = now;
+    mouse.lastSpeed = speed;
+  });
+
+  // ── Click tracking ───────────────────────────────
+  document.addEventListener('click', (e) => {
+    touch();
+    const now = Date.now();
+    clicks.timestamps.push(now);
+    // Keep only last 5s
+    const window5s = now - 5000;
+    clicks.timestamps = clicks.timestamps.filter(t => t > window5s);
+    metrics.clicksIn5s = clicks.timestamps.length;
+
+    if (clicks.timestamps.length >= 10 && now > clicks.frustCooldown) {
+      clicks.frustCooldown = now + 5000; // 5s cooldown after trigger
+      clicks.timestamps = [];
+      metrics.clicksIn5s = 0;
+      EventBus.emit('rapid_click');
+    }
+  });
+
+  // ── Keyboard tracking ─────────────────────────────
+  document.addEventListener('keydown', (e) => {
+    touch();
+    const now = Date.now();
+    keyboard.keyTimestamps.push(now);
+
+    // Key hold: record when key was pressed
+    if (!keyboard.heldKeys[e.code]) {
+      keyboard.heldKeys[e.code] = now;
+    }
+
+    // Fast burst: ≥6 keys in 800ms
+    const window800 = keyboard.keyTimestamps.filter(t => t > now - 800);
+    metrics.kps = Math.round(window800.length / 0.8);
+    if (window800.length >= 6 && now > keyboard.burstCooldown) {
+      keyboard.burstCooldown = now + 2000;
+      EventBus.emit('typing_pressure', 'burst');
+    }
+
+    // Stable typing check (5 keys, spacing 150–400ms each)
+    if (keyboard.keyTimestamps.length >= 5) {
+      const last5 = keyboard.keyTimestamps.slice(-5);
+      const gaps  = last5.slice(1).map((t,i)=> t - last5[i]);
+      const allStable = gaps.every(g => g >= 120 && g <= 500);
+      if (allStable) {
+        keyboard.stableCount++;
+        if (keyboard.stableCount >= 3 && now > mouse.calmCooldown) {
+          keyboard.stableCount = 0;
+          mouse.calmCooldown = now + 8000;
+          EventBus.emit('calm_interaction', 'stable_typing');
+        }
+      } else {
+        keyboard.stableCount = 0;
+      }
+    }
+    // Trim old timestamps
+    if (keyboard.keyTimestamps.length > 50) keyboard.keyTimestamps.shift();
+  });
+
+  document.addEventListener('keyup', (e) => {
+    touch();
+    const now = Date.now();
+    const holdStart = keyboard.heldKeys[e.code];
+    if (holdStart) {
+      const holdDuration = now - holdStart;
+      delete keyboard.heldKeys[e.code];
+      // Long key hold: > 600ms
+      if (holdDuration > 600 && now > keyboard.holdCooldown) {
+        keyboard.holdCooldown = now + 2000;
+        EventBus.emit('typing_pressure', 'hold');
+      }
+    }
+  });
+
+  return { getIdleSeconds, metrics };
+})();
+
+/* ════════════════════════════════════════════════════
+   MODULE 5: MOOD ENGINE
+   Processes events → updates score
+════════════════════════════════════════════════════ */
+const MoodEngine = (() => {
+  const EVENT_DEFS = {
+    typing_pressure:  { label: 'Typing Pressure',   icon: '⌨️',  delta: -5,  type: 'stress',  toastClass: 'toast-stress' },
+    mouse_aggression: { label: 'Mouse Aggression',   icon: '🖱',  delta: -10, type: 'stress',  toastClass: 'toast-stress' },
+    rapid_click:      { label: 'Rapid Clicking',     icon: '💢',  delta: -15, type: 'frustration', toastClass: 'toast-stress' },
+    calm_interaction: { label: 'Calm Interaction',   icon: '🌿',  delta: +10, type: 'calm',    toastClass: 'toast-calm' },
+    idle_reset:       { label: 'Idle Reset',         icon: '💤',  delta: -5,  type: 'idle',    toastClass: 'toast-info' },
+  };
+
+  function handleEvent(eventKey, subtype) {
+    const def = EVENT_DEFS[eventKey];
+    if (!def) return;
+
+    const prev  = State.get('score');
+    const next  = MoodLogic.applyDelta(prev, def.delta);
+    State.set('score', next);
+
+    // Update peak/low
+    if (next > State.get('peakScore')) State.set('peakScore', next);
+    if (next < State.get('lowScore'))  State.set('lowScore',  next);
+
+    // Record score history
+    const hist = State.get('scoreHistory');
+    hist.push({ ts: Date.now(), score: next });
+    if (hist.length > 200) hist.shift();
+
+    // Record event log
+    const log = State.get('eventLog');
+    const entry = {
+      id:    Date.now() + Math.random(),
+      type:  eventKey,
+      subtype,
+      label: def.label + (subtype ? ` (${subtype})` : ''),
+      icon:  def.icon,
+      delta: def.delta,
+      score: next,
+      ts:    Date.now(),
+      toastClass: def.toastClass,
+    };
+    log.push(entry);
+    State.set('totalEvents', State.get('totalEvents') + 1);
+
+    // Emit to UI
+    EventBus.emit('score_changed', { prev, next, delta: def.delta, entry });
+  }
+
+  // Bind all event keys
+  ['typing_pressure','mouse_aggression','rapid_click','calm_interaction','idle_reset']
+    .forEach(key => EventBus.on(key, (sub) => handleEvent(key, sub)));
+
+  return {};
+})();
+
+/* ════════════════════════════════════════════════════
+   MODULE 6: CHART ENGINE (Chart.js)
+════════════════════════════════════════════════════ */
+const ChartEngine = (() => {
+  const MAX_POINTS = 60;
+  const labels = Array(MAX_POINTS).fill('');
+  const data   = Array(MAX_POINTS).fill(50);
+
+  const ctx = document.getElementById('moodChart').getContext('2d');
+
+  // Gradient fill
+  const gradient = ctx.createLinearGradient(0, 0, 0, 220);
+  gradient.addColorStop(0,   'rgba(108,99,255,0.4)');
+  gradient.addColorStop(0.5, 'rgba(108,99,255,0.15)');
+  gradient.addColorStop(1,   'rgba(108,99,255,0.0)');
+
+  const chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Mood Score',
+        data,
+        borderColor: '#6c63ff',
+        borderWidth: 2.5,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        fill: true,
+        backgroundColor: gradient,
+        tension: 0.4,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 300 },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(20,20,43,0.95)',
+          titleColor: '#a78bfa',
+          bodyColor:  '#e8e8ff',
+          borderColor:'rgba(108,99,255,0.4)',
+          borderWidth: 1,
+          padding: 10,
+          displayColors: false,
+          callbacks: {
+            title: ()=> 'Mood Score',
+            label: (item) => {
+              const s = item.raw;
+              return `Score: ${s} — ${MoodLogic.getLevelForScore(s).label}`;
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          display: false,
+          grid: { display: false },
+        },
+        y: {
+          min: 0, max: 100,
+          grid: { color: 'rgba(120,120,255,0.08)', drawBorder: false },
+          ticks: {
+            color: '#9090bb', font: { size: 10 },
+            callback: (v) => {
+              const lbl = {0:'0',20:'20',40:'40',60:'60',80:'80',100:'100'};
+              return lbl[v] !== undefined ? lbl[v] : '';
+            },
+            stepSize: 20,
+          },
+          border: { display: false },
+        },
+      },
+    },
+  });
+
+  function addPoint(score) {
+    data.push(score);
+    if (data.length > MAX_POINTS) data.shift();
+    labels.push('');
+    if (labels.length > MAX_POINTS) labels.shift();
+    // Update line color based on score
+    const level  = MoodLogic.getLevelForScore(score);
+    chart.data.datasets[0].borderColor = level.color;
+    chart.update('none');
+  }
+
+  return { addPoint };
+})();
+
+/* ════════════════════════════════════════════════════
+   MODULE 7: UI RENDERER
+   All DOM updates live here
+════════════════════════════════════════════════════ */
+const UI = (() => {
+  // Cache DOM refs
+  const els = {
+    gaugeScore:       document.getElementById('gaugeScore'),
+    gaugeFill:        document.getElementById('gaugeFill'),
+    moodBadge:        document.getElementById('moodBadge'),
+    moodEmoji:        document.getElementById('moodEmoji'),
+    moodStateName:    document.getElementById('moodStateName'),
+    scoreDelta:       document.getElementById('scoreDelta'),
+    moodTimestamp:    document.getElementById('moodTimestamp'),
+    eventList:        document.getElementById('eventList'),
+    eventCount:       document.getElementById('eventCount'),
+    statSession:      document.getElementById('statSession'),
+    statPeak:         document.getElementById('statPeak'),
+    statLow:          document.getElementById('statLow'),
+    statEvents:       document.getElementById('statEvents'),
+    statAvg:          document.getElementById('statAvg'),
+    aiPredictionText: document.getElementById('aiPredictionText'),
+    aiNextBadge:      document.getElementById('aiNextBadge'),
+    aiConfidenceVal:  document.getElementById('aiConfidenceVal'),
+    aiConfidenceFill: document.getElementById('aiConfidenceFill'),
+    aiTrends:         document.getElementById('aiTrends'),
+    idleBarFill:      document.getElementById('idleBarFill'),
+    idleTimeDisplay:  document.getElementById('idleTimeDisplay'),
+    idleStatusText:   document.getElementById('idleStatusText'),
+    metricKPS:        document.getElementById('metricKPS'),
+    metricMSpeed:     document.getElementById('metricMSpeed'),
+    metricClicks:     document.getElementById('metricClicks'),
+    sessionTimer:     document.getElementById('sessionTimer'),
+    // Track badges
+    badgeTyping:      document.getElementById('badge-typing'),
+    badgeMouse:       document.getElementById('badge-mouse'),
+    badgeClick:       document.getElementById('badge-click'),
+    badgeCalm:        document.getElementById('badge-calm'),
+    badgeIdle:        document.getElementById('badge-idle'),
+  };
+
+  // Gauge arc math: circumference = 2π*80 ≈ 502.65, arc = 240/360 * 502.65 ≈ 335.1
+  const CIRC    = 502.65;
+  const ARC_LEN = 335.1;
+
+  function updateGauge(score) {
+    const level  = MoodLogic.getLevelForScore(score);
+    const offset = ARC_LEN - (score / 100) * ARC_LEN;
+
+    els.gaugeFill.style.strokeDashoffset = offset;
+    els.gaugeScore.textContent = score;
+
+    // Badge
+    els.moodBadge.style.backgroundColor = level.color + '22';
+    els.moodBadge.style.borderColor      = level.color + '88';
+    els.moodBadge.style.color            = level.color;
+    els.moodEmoji.textContent            = level.emoji;
+    els.moodStateName.textContent        = level.label;
+
+    // Level list highlight
+    document.querySelectorAll('.level-item').forEach(el => {
+      el.classList.toggle('active', el.dataset.level === level.key);
+    });
+
+    // Timestamp
+    els.moodTimestamp.textContent = new Date().toLocaleTimeString();
+
+    // Glow pulse on badge
+    els.moodBadge.classList.remove('glow-pulse');
+    void els.moodBadge.offsetWidth; // reflow
+    els.moodBadge.classList.add('glow-pulse');
+  }
+
+  function showDelta(delta) {
+    els.scoreDelta.textContent  = (delta > 0 ? '+' : '') + delta;
+    els.scoreDelta.className    = 'score-delta show ' + (delta > 0 ? 'delta-pos' : 'delta-neg');
+    clearTimeout(els._deltaTimer);
+    els._deltaTimer = setTimeout(() => {
+      els.scoreDelta.classList.remove('show');
+    }, 1200);
+  }
+
+  function addEventItem(entry) {
+    // Remove placeholder
+    const placeholder = els.eventList.querySelector('div[style]');
+    if (placeholder) placeholder.remove();
+
+    const el = document.createElement('div');
+    el.className = 'event-item';
+    const sign  = entry.delta > 0 ? '+' : '';
+    const dColor = entry.delta > 0 ? '#00e676' : '#ff5c7c';
+    const time  = new Date(entry.ts).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
+
+    el.style.borderLeftColor = dColor;
+    el.innerHTML = `
+      <span class="event-icon">${entry.icon}</span>
+      <div class="event-info">
+        <div class="event-name">${entry.label}</div>
+        <div class="event-time">${time} · Score: ${entry.score}</div>
+      </div>
+      <div class="event-delta" style="color:${dColor}">${sign}${entry.delta}</div>
+    `;
+
+    els.eventList.insertBefore(el, els.eventList.firstChild);
+
+    // Limit to 10 visible
+    const items = els.eventList.querySelectorAll('.event-item');
+    if (items.length > 10) items[items.length-1].remove();
+
+    // Count
+    const total = State.get('totalEvents');
+    els.eventCount.textContent = `${total} event${total !== 1 ? 's' : ''}`;
+  }
+
+  function updateStats() {
+    const score = State.get('score');
+    const hist  = State.get('scoreHistory');
+    const avg   = hist.length
+      ? Math.round(hist.reduce((a,b)=>a+b.score,0) / hist.length)
+      : 50;
+
+    els.statSession.textContent = score;
+    els.statPeak.textContent    = State.get('peakScore');
+    els.statLow.textContent     = State.get('lowScore');
+    els.statEvents.textContent  = State.get('totalEvents');
+    els.statAvg.textContent     = avg;
+  }
+
+  function updateAIPrediction() {
+    const log   = State.get('eventLog');
+    const score = State.get('score');
+    const pred  = MoodLogic.predictNextMood(log, score);
+
+    els.aiPredictionText.textContent = pred.message;
+    els.aiNextBadge.textContent      = pred.level.label;
+    els.aiNextBadge.style.color      = pred.level.color;
+    els.aiNextBadge.style.borderColor = pred.level.color;
+    els.aiConfidenceVal.textContent  = pred.confidence + '%';
+    els.aiConfidenceFill.style.width = pred.confidence + '%';
+
+    if (pred.trends.length > 0) {
+      els.aiTrends.innerHTML = pred.trends
+        .map(t => `<div class="trend-chip">${t}</div>`).join('');
+    }
+  }
+
+  function flashBadge(badgeEl, duration = 1500) {
+    badgeEl.classList.add('active');
+    clearTimeout(badgeEl._flashTimer);
+    badgeEl._flashTimer = setTimeout(() => badgeEl.classList.remove('active'), duration);
+  }
+
+  function activateTrackBadge(type) {
+    const map = {
+      typing_pressure:  els.badgeTyping,
+      mouse_aggression: els.badgeMouse,
+      rapid_click:      els.badgeClick,
+      calm_interaction: els.badgeCalm,
+      idle_reset:       els.badgeIdle,
+    };
+    if (map[type]) flashBadge(map[type]);
+  }
+
+  function toast(message, cls = 'toast-info') {
+    const t = document.createElement('div');
+    t.className = `toast ${cls}`;
+    t.textContent = message;
+    document.getElementById('toast-container').appendChild(t);
+    setTimeout(() => {
+      t.classList.add('toast-out');
+      setTimeout(() => t.remove(), 300);
+    }, 2500);
+  }
+
+  return { updateGauge, showDelta, addEventItem, updateStats, updateAIPrediction, activateTrackBadge, toast };
+})();
+
+/* ════════════════════════════════════════════════════
+   MODULE 8: EVENT WIRING
+   Connect EventBus → UI + Chart
+════════════════════════════════════════════════════ */
+EventBus.on('score_changed', ({ prev, next, delta, entry }) => {
+  UI.updateGauge(next);
+  UI.showDelta(delta);
+  UI.addEventItem(entry);
+  UI.updateStats();
+  UI.activateTrackBadge(entry.type);
+  ChartEngine.addPoint(next);
+
+  const sign = delta > 0 ? '+' : '';
+  UI.toast(`${entry.icon} ${entry.label} · ${sign}${delta}`, entry.toastClass);
+});
+
+// Periodic AI prediction update
+setInterval(() => {
+  if (State.get('totalEvents') > 0) UI.updateAIPrediction();
+}, 5000);
+
+/* ════════════════════════════════════════════════════
+   MODULE 9: IDLE & METRICS POLLING
+════════════════════════════════════════════════════ */
+setInterval(() => {
+  const idle     = Tracker.getIdleSeconds();
+  const idlePct  = Math.min(100, (idle / 60) * 100);
+  const idleBar  = document.getElementById('idleBarFill');
+  const idleDisp = document.getElementById('idleTimeDisplay');
+  const idleTxt  = document.getElementById('idleStatusText');
+
+  idleBar.style.width    = idlePct + '%';
+  idleDisp.textContent   = `${idle}s / 60s`;
+
+  if (idle < 10) {
+    idleTxt.textContent  = '✅ Active — Keep interacting!';
+    idleTxt.style.color  = 'var(--green)';
+  } else if (idle < 40) {
+    idleTxt.textContent  = '⚠️ Slowing down…';
+    idleTxt.style.color  = 'var(--yellow)';
+  } else if (idle < 60) {
+    idleTxt.textContent  = `⏳ Idle reset in ${60 - idle}s…`;
+    idleTxt.style.color  = 'var(--orange)';
+  } else {
+    idleTxt.textContent  = '💤 Idle reset triggered!';
+    idleTxt.style.color  = 'var(--red)';
+  }
+
+  // Metrics
+  document.getElementById('metricKPS').textContent     = Tracker.metrics.kps;
+  document.getElementById('metricMSpeed').textContent  = Tracker.metrics.mouseSpeed;
+  document.getElementById('metricClicks').textContent  = Tracker.metrics.clicksIn5s;
+
+  // Session timer
+  const elapsed = Math.floor((Date.now() - State.get('sessionStart')) / 1000);
+  const m = String(Math.floor(elapsed / 60)).padStart(2,'0');
+  const s = String(elapsed % 60).padStart(2,'0');
+  document.getElementById('sessionTimer').textContent = `${m}:${s}`;
+
+  // Update chart every 1s even without events (flat line)
+  ChartEngine.addPoint(State.get('score'));
+
+}, 1000);
+
+/* ════════════════════════════════════════════════════
+   MODULE 10: THEME TOGGLE
+════════════════════════════════════════════════════ */
+const themeBtn = document.getElementById('themeToggleBtn');
+themeBtn.addEventListener('click', () => {
+  const cur  = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  themeBtn.textContent = next === 'dark' ? '🌙 Dark' : '☀️ Light';
+  State.set('theme', next);
+});
+
+/* ════════════════════════════════════════════════════
+   MODULE 11: EXPORT SESSION JSON
+════════════════════════════════════════════════════ */
+document.getElementById('exportBtn').addEventListener('click', () => {
+  const data = {
+    exportTime:   new Date().toISOString(),
+    sessionStart: new Date(State.get('sessionStart')).toISOString(),
+    finalScore:   State.get('score'),
+    peakScore:    State.get('peakScore'),
+    lowScore:     State.get('lowScore'),
+    totalEvents:  State.get('totalEvents'),
+    moodLevel:    MoodLogic.getLevelForScore(State.get('score')).label,
+    eventLog:     State.get('eventLog').map(e => ({
+      type:    e.type,
+      label:   e.label,
+      delta:   e.delta,
+      score:   e.score,
+      time:    new Date(e.ts).toISOString(),
+    })),
+    scoreHistory: State.get('scoreHistory').map(h => ({
+      score: h.score,
+      time:  new Date(h.ts).toISOString(),
+    })),
+  };
+
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `mood-session-${Date.now()}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  UI.toast('📁 Session exported as JSON!', 'toast-info');
+});
+
+/* ════════════════════════════════════════════════════
+   MODULE 12: RESET
+════════════════════════════════════════════════════ */
+document.getElementById('resetBtn').addEventListener('click', () => {
+  if (!confirm('Reset simulation? All session data will be cleared.')) return;
+  State.reset();
+  UI.updateGauge(50);
+  UI.updateStats();
+  document.getElementById('eventList').innerHTML = `
+    <div style="text-align:center;padding:20px;color:var(--text-secondary);font-size:0.82rem">
+      Simulation reset. Start interacting!
+    </div>`;
+  document.getElementById('eventCount').textContent = '0 events';
+  document.getElementById('aiPredictionText').textContent = 'Analyzing your interaction patterns…';
+  document.getElementById('aiNextBadge').textContent      = '—';
+  document.getElementById('aiTrends').innerHTML = '<div class="trend-chip">📊 Gathering data…</div>';
+  UI.toast('↺ Simulation reset!', 'toast-info');
+});
+
+/* ════════════════════════════════════════════════════
+   INIT — Render initial state
+════════════════════════════════════════════════════ */
+UI.updateGauge(50);
+UI.updateStats();
+
+</script>
+</body>
+</html>
